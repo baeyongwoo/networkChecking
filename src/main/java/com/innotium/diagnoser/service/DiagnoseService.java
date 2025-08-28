@@ -11,6 +11,9 @@ import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 @Service
 @RequiredArgsConstructor
@@ -189,7 +192,7 @@ public class DiagnoseService {
     }
 
     public List<DiagnoseResult> diagnoseMultiplePorts(String target) {
-        List<Integer> scanPorts = List.of(80, 443, 8080, 8443, 3306, 5432, 6379, 40100);
+        List<Integer> scanPorts = List.of(80, 443, 8080, 8443, 3306, 5432, 6379, 14180,40100);
         List<DiagnoseResult> results = new ArrayList<>();
 
         for (int port : scanPorts) {
@@ -234,4 +237,43 @@ public class DiagnoseService {
             default -> "🚫 HTTP 응답 없음: 해당 포트에서 웹 애플리케이션이 정상적으로 실행 중인지 확인하고, 방화벽 및 라우팅 설정을 점검하세요.";
         };
     }
+
+    public DiagnoseResult scanAllPorts(String target) {
+        DiagnoseResult res = new DiagnoseResult();
+        StringBuilder output = new StringBuilder();
+        List<Integer> openPorts = new ArrayList<>();
+
+        output.append("🔍 전체 포트 스캔 (1~50000):\n");
+
+        ExecutorService executor = Executors.newFixedThreadPool(200);
+        List<Future<Integer>> futures = new ArrayList<>();
+
+        for (int port = 1; port <= 50000; port++) {
+            final int p = port;
+            futures.add(executor.submit(() -> {
+                try (Socket socket = new Socket()) {
+                    socket.connect(new InetSocketAddress(target, p), 100);
+                    return p;
+                } catch (Exception e) {
+                    return null;
+                }
+            }));
+        }
+
+        for (Future<Integer> f : futures) {
+            try {
+                Integer result = f.get();
+                if (result != null) {
+                    openPorts.add(result);
+                    output.append("✅ 포트 ").append(result).append(" 열림\n");
+                }
+            } catch (Exception ignored) {}
+        }
+
+        executor.shutdown();
+        res.scannedPorts = openPorts;
+        res.fullOutput = output.toString();
+        return res;
+    }
+
 }

@@ -119,4 +119,17 @@ public class DiagnoseController {
             e.printStackTrace();
         }
     }
+    @PostMapping("/scan-all")
+    public String scanAll(@RequestParam String target, Model model) {
+        DiagnoseResult result = diagnoseService.scanAllPorts(target);
+
+        model.addAttribute("target", target);
+        model.addAttribute("scannedPorts", result.scannedPorts);
+        model.addAttribute("result", result.fullOutput);
+
+        // 분석 결과는 생략
+        model.addAttribute("analysis", null);
+
+        return "diagnose";
+    }
 }

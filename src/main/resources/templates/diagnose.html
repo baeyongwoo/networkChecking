@@ -172,11 +172,28 @@
 
 <form id="diagnoseForm" method="post">
     <input type="text" name="target" placeholder="IP 또는 도메인 입력" th:value="${target}" required />
-    <button type="button" onclick="submitTo('/diagnose-multi')">🔍 전체 포트 자동 분석</button>
+    <button type="button" onclick="submitTo('/diagnose-multi')">🔍 주요 포트 </button>
+    <button type="button" onclick="submitTo('/scan-all')">🧨 전체 포트 스캔 (1~50000)</button>
+
 </form>
 
 <div id="loadingMessage">
     <span id="typingText"></span>
+</div>
+<!-- 전체 포트 스캔 결과 출력 -->
+<div th:if="${result != null}" class="centered">
+    <h2 style="color:#00ff99;">🧨 전체 포트 스캔 결과</h2>
+
+    <div class="card">
+        <pre th:text="${result}"></pre> <!-- 또는 ${result.fullOutput} -->
+    </div>
+
+<!--    <div th:if="${scannedPorts != null}">-->
+<!--        <h3 style="margin-top:1em;">✅ 열린 포트 목록:</h3>-->
+<!--        <ul>-->
+<!--            <li th:each="p : ${scannedPorts}" th:text="'포트 ' + ${p}"></li>-->
+<!--        </ul>-->
+<!--    </div>-->
 </div>
 
 <!-- 포트별 분석 결과 카드 -->
