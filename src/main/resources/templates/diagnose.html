@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>멀티 포트 진단기</title>
+    <style>
+        body {
+            background-color: #1e1e1e;
+            color: #e0e0e0;
+            font-family: 'Courier New', monospace;
+            padding: 2em;
+            position: relative;
+        }
+
+        h1 {
+            color: #00ff99;
+            text-align: center;
+            margin-bottom: 2em;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1em;
+            margin-bottom: 2em;
+        }
+
+        input, button {
+            padding: 0.6em 1em;
+            font-size: 1em;
+            background-color: #2e2e2e;
+            color: #dcdcdc;
+            border: 1px solid #555;
+            border-radius: 6px;
+        }
+
+        button:hover {
+            background-color: #00ff99;
+            color: #000;
+            transform: scale(1.05);
+        }
+
+        #loadingMessage {
+            display: none;
+            text-align: center;
+            margin-top: 1em;
+            font-size: 1.2em;
+            color: #00ff99;
+        }
+
+        .centered {
+            max-width: 900px;
+            margin: 0 auto;
+            margin-bottom: 3em;
+        }
+
+        .card {
+            background-color: #111;
+            padding: 1.5em;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,255,153,0.2);
+            border: 1px solid #444;
+            white-space: pre-wrap;
+            font-size: 16px;
+        }
+
+        .modal-button {
+            margin-top: 1em;
+            background-color: #222;
+            color: #00ff99;
+            border: 1px solid #00ff99;
+            border-radius: 6px;
+            padding: 0.6em 1.2em;
+            cursor: pointer;
+        }
+
+        .modal-button:hover {
+            background-color: #00ff99;
+            color: #000;
+        }
+
+        .console-modal {
+            display: none;
+            position: fixed;
+            top: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            max-width: 900px;
+            background: rgba(0, 0, 0, 0.95);
+            color: #0f0;
+            padding: 1.5em;
+            border-radius: 10px;
+            border: 2px solid #00ff99;
+            z-index: 1000;
+        }
+
+        .console-modal button {
+            background: #222;
+            color: #fff;
+            border: none;
+            padding: 0.5em 1em;
+            float: right;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .console-modal button:hover {
+            background-color: #00ff99;
+            color: #000;
+        }
+
+        .console-modal h3 {
+            margin-top: 0;
+            color: #00ff99;
+        }
+
+        .console-modal pre {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .hint {
+            margin-top: 1em;
+            font-size: 0.95em;
+        }
+
+        .hint.warning {
+            color: #ff4444;
+            font-weight: bold;
+        }
+
+        .hint.guide {
+            color: #ff6666;
+        }
+
+        .top-right-buttons {
+            position: fixed;         /* ← 고정 위치로 변경 */
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 9999;           /* 다른 요소보다 위에 표시 */
+        }
+
+        .top-right-buttons button {
+            background-color: #333;
+            color: #fff;
+            border: 1px solid #888;
+            padding: 0.5em 1em;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .top-right-buttons button:hover {
+            background-color: #00ff99;
+            color: #000;
+            border-color: #00ff99;
+        }
+    </style>
+</head>
+<body>
+
+<!-- 우측 상단 설정 버튼 -->
+<div class="top-right-buttons">
+    <button onclick="callNetworkSettings()">💻 네트워크 설정 열기</button>
+    <button onclick="callPortSettings()">🔐 방화벽 설정 열기</button>
+</div>
+
+<h1>🧠 멀티 포트 진단기</h1>
+
+<form id="diagnoseForm" method="post">
+    <input type="text" name="target" placeholder="IP 또는 도메인 입력" th:value="${target}" required />
+    <button type="button" onclick="submitTo('/diagnose-multi')">🔍 전체 포트 자동 분석</button>
+</form>
+
+<div id="loadingMessage">
+    <span id="typingText"></span>
+</div>
+
+<!-- 포트별 분석 결과 카드 -->
+<div th:each="res : ${multiResults}" class="centered">
+    <h2 style="color:#00ff99;">
+        📊 포트 [[${res.port}]] ([[${res.serviceName}]])
+        <span th:if="${res.portOpen}">✅ 열림</span>
+        <span th:if="${!res.portOpen}">❌ 닫힘</span>
+    </h2>
+
+    <div class="card">
+        <pre th:text="${res.analysisSummary}"></pre>
+    </div>
+
+    <div th:if="${res.riskHint != null}" class="hint warning">
+        [[${res.riskHint}]]
+    </div>
+
+<!--    <div th:if="${res.resolutionHint != null}" class="hint guide">-->
+<!--        ⚠️ 해결 가이드: [[${res.resolutionHint}]]-->
+<!--    </div>-->
+
+    <!-- 연결 실패 시 설정 버튼 -->
+<!--    <div th:if="${!res.portOpen or !res.httpSuccess or !res.pingSuccess}" style="margin-top:1em;">-->
+<!--        <button onclick="openNetworkSettings()" style="margin-right:10px;">💻 네트워크 설정 열기</button>-->
+<!--        <button onclick="openFirewallSettings()">🔐 방화벽 설정 열기</button>-->
+<!--    </div>-->
+
+    <button class="modal-button" th:attr="data-port=${res.port}" onclick="showConsole(this)">📜 콘솔 로그 보기</button>
+</div>
+
+<!-- 포트별 콘솔 로그 모달 -->
+<div th:each="res : ${multiResults}">
+    <div th:attr="id='consoleModal-' + ${res.port}" class="console-modal">
+        <button th:attr="onclick='hideConsole(' + ${res.port} + ')'">닫기</button>
+        <h3>📜 포트 [[${res.port}]] 콘솔 로그</h3>
+        <pre th:text="${res.fullOutput}"></pre>
+    </div>
+</div>
+
+<script>
+    function typeLoadingMessage(text, elementId, speed = 80) {
+        const el = document.getElementById(elementId);
+        el.textContent = "";
+        let i = 0;
+        const interval = setInterval(() => {
+            if (i < text.length) {
+                el.textContent += text.charAt(i);
+                i++;
+            } else {
+                clearInterval(interval);
+            }
+        }, speed);
+    }
+
+    function submitTo(actionUrl) {
+        const form = document.getElementById("diagnoseForm");
+        document.getElementById("loadingMessage").style.display = "block";
+        typeLoadingMessage("🔄 진단 중입니다... 잠시만 기다려주세요", "typingText", 80);
+        const buttons = form.querySelectorAll("button");
+        buttons.forEach(btn => btn.disabled = true);
+        form.action = actionUrl;
+        form.submit();
+    }
+
+    function showConsole(button) {
+        const port = button.getAttribute("data-port");
+        const modal = document.getElementById("consoleModal-" + port);
+        if (modal) modal.style.display = "block";
+    }
+
+    function hideConsole(port) {
+        const modal = document.getElementById("consoleModal-" + port);
+        if (modal) modal.style.display = "none";
+    }
+    function openNetworkSettings() {
+        try {
+            // 데스크탑 앱에서 이 함수를 native로 구현하면 실제 실행됨
+            window.external.OpenNetworkSettings();
+        } catch (e) {
+            alert("💻 네트워크 설정을 열려면:\n제어판 > 네트워크 및 공유 센터 > 어댑터 설정 변경 으로 이동하세요.");
+        }
+    }
+
+    function openFirewallSettings() {
+        try {
+            window.external.OpenFirewallSettings();
+        } catch (e) {
+            alert("🔐 방화벽 설정을 열려면:\n제어판 > Windows Defender 방화벽 으로 이동하세요.");
+        }
+    }
+</script>
+<script>
+    function callNetworkSettings() {
+        fetch("/open-network-settings", { method: "POST" })
+            .then(() => alert("💻 네트워크 설정 창을 실행했습니다."))
+            .catch(() => alert("⚠️ 설정 창 실행에 실패했습니다."));
+    }
+
+    function callPortSettings() {
+        fetch("/open-port-settings", { method: "POST" })
+            .then(() => alert("🔐 방화벽 설정 창을 실행했습니다."))
+            .catch(() => alert("⚠️ 설정 창 실행에 실패했습니다."));
+    }
+</script>
